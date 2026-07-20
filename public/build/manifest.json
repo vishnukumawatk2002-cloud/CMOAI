@@ -1,0 +1,24 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-BeGB89ZK.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/landing.css": {
+    "file": "assets/landing-DHIOrWXf.css",
+    "src": "resources/css/landing.css",
+    "isEntry": true
+  },
+  "resources/js/admin-dashboard.js": {
+    "file": "assets/admin-dashboard-s0ba3I27.js",
+    "name": "admin-dashboard",
+    "src": "resources/js/admin-dashboard.js",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-Bo2Y9zYN.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  }
+}

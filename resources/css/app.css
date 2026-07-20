@@ -1,0 +1,244 @@
+@import 'bootstrap/dist/css/bootstrap.min.css';
+@import './cmo-design.css';
+
+:root {
+    --bs-primary: #6C63FF;
+    --bs-success: #0DC9A0;
+}
+
+.btn-success {
+    --bs-btn-bg: #0DC9A0;
+    --bs-btn-border-color: #0DC9A0;
+    --bs-btn-hover-bg: #0bb894;
+    --bs-btn-hover-border-color: #0bb894;
+}
+
+.btn-primary {
+    --bs-btn-bg: #6C63FF;
+    --bs-btn-border-color: #6C63FF;
+    --bs-btn-hover-bg: #5A52E0;
+    --bs-btn-hover-border-color: #5A52E0;
+}
+
+body {
+    font-family: 'Inter', system-ui, sans-serif;
+}
+
+.alert-bar {
+    padding: 12px 16px;
+    border-radius: 8px;
+    margin-bottom: 16px;
+    font-size: 13px;
+    font-weight: 500;
+}
+.alert-bar.success {
+    background: rgba(13, 201, 160, 0.08);
+    border: 1px solid rgba(13, 201, 160, 0.22);
+    color: #0DC9A0;
+}
+.alert-bar.error {
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    color: #EF4444;
+}
+.field-error{display:block;font-size:12px;color:#EF4444;margin-top:4px}
+
+/* Admin panel */
+.admin-wrapper {
+    display: flex;
+    min-height: 100vh;
+    width: 100%;
+    overflow-x: hidden;
+}
+
+.admin-sidebar {
+    width: 260px;
+    flex-shrink: 0;
+    background: #1e1e2d;
+    color: #a2a3b7;
+}
+
+.admin-sidebar .brand {
+    padding: 1.25rem 1.5rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-sidebar .brand a {
+    color: #fff;
+    text-decoration: none;
+    font-weight: 700;
+    font-size: 1.25rem;
+}
+
+.admin-sidebar .brand span {
+    color: var(--bs-success);
+}
+
+.admin-sidebar .nav-section {
+    padding: 1rem 0;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #565674;
+    padding-left: 1.5rem;
+}
+
+.admin-sidebar .nav-link {
+    color: #a2a3b7;
+    padding: 0.65rem 1.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    text-decoration: none;
+    border-left: 3px solid transparent;
+    transition: all 0.15s ease;
+}
+
+.admin-sidebar .nav-link:hover,
+.admin-sidebar .nav-link.active {
+    color: #fff;
+    background: rgba(108, 99, 255, 0.12);
+    border-left-color: var(--bs-primary);
+}
+
+.admin-main {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    background: #f5f6fa;
+    overflow-x: hidden;
+}
+
+.admin-topbar {
+    background: #fff;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.75rem 1.5rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.admin-content {
+    padding: 1.5rem;
+    flex: 1;
+    min-width: 0;
+    max-width: 100%;
+    overflow-x: hidden;
+}
+
+.admin-content > .card {
+    max-width: 100%;
+    min-width: 0;
+    overflow: hidden;
+}
+
+.plans-table-scroll {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto !important;
+    overflow-y: auto;
+    max-height: calc(100vh - 280px);
+    -webkit-overflow-scrolling: touch;
+    scrollbar-gutter: stable;
+    scrollbar-width: thin;
+    scrollbar-color: #7c75e8 #e9eaf4;
+}
+
+.plans-table-scroll::-webkit-scrollbar {
+    height: 10px;
+    width: 10px;
+}
+
+.plans-table-scroll::-webkit-scrollbar-track {
+    background: #e9eaf4;
+    border-radius: 8px;
+}
+
+.plans-table-scroll::-webkit-scrollbar-thumb {
+    background: #7c75e8;
+    border-radius: 8px;
+}
+
+.plans-table-scroll table {
+    width: max-content;
+    min-width: 100%;
+    margin-bottom: 0;
+}
+
+.plans-table-scroll thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: #f8f9fa;
+    white-space: nowrap;
+}
+
+.plans-features-cell {
+    max-width: 200px;
+    min-width: 140px;
+}
+
+.plans-features-cell .d-flex {
+    max-height: 64px;
+    overflow-y: auto;
+}
+
+.plans-actions-cell {
+    position: sticky;
+    right: 0;
+    background: #fff;
+    z-index: 3;
+    box-shadow: -8px 0 12px rgba(0, 0, 0, 0.06);
+    white-space: nowrap;
+}
+
+.plans-table-scroll thead th.plans-actions-cell {
+    z-index: 4;
+    background: #f8f9fa;
+}
+
+.plans-table-scroll tbody tr:hover .plans-actions-cell {
+    background: #f8f9fa;
+}
+
+.stat-card {
+    border: none;
+    border-radius: 0.75rem;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+.stat-card .stat-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #1e1e2d;
+}
+
+.stat-card .stat-label {
+    color: #6c757d;
+    font-size: 0.875rem;
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+.chart-container {
+    position: relative;
+    height: 280px;
+}
+
+.activity-list .activity-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    margin-top: 6px;
+    flex-shrink: 0;
+}

@@ -22,7 +22,7 @@ copy .env.example .env
 php artisan key:generate
 
 # Configure DB in .env
-
+aindracmodb.sql database file
 php artisan migrate
 php artisan storage:link
 php artisan optimize:clear

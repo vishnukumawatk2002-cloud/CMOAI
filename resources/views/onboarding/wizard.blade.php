@@ -25,7 +25,7 @@
         ['id' => 'ig', 'platform' => 'instagram', 'oauth' => true, 'icon' => 'ti-brand-instagram', 'color' => '#E1306C', 'label' => 'Instagram'],
         ['id' => 'li', 'platform' => 'linkedin', 'oauth' => true, 'icon' => 'ti-brand-linkedin', 'color' => '#0A66C2', 'label' => 'LinkedIn'],
         ['id' => 'x', 'platform' => 'x', 'oauth' => true, 'icon' => 'ti-brand-x', 'color' => 'var(--text)', 'label' => 'X / Twitter'],
-        // ['id' => 'yt', 'platform' => 'youtube', 'oauth' => false, 'icon' => 'ti-brand-youtube', 'color' => '#FF0000', 'label' => 'YouTube'],
+        ['id' => 'yt', 'platform' => 'youtube', 'oauth' => true, 'icon' => 'ti-brand-youtube', 'color' => '#FF0000', 'label' => 'YouTube'],
         // ['id' => 'pi', 'platform' => 'pinterest', 'oauth' => false, 'icon' => 'ti-brand-pinterest', 'color' => '#E60023', 'label' => 'Pinterest'],
         // ['id' => 'th', 'platform' => 'threads', 'oauth' => false, 'icon' => 'ti-brand-threads', 'color' => 'var(--text)', 'label' => 'Threads'],
     ];

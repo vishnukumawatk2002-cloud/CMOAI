@@ -2,18 +2,24 @@
 
 namespace App\Http\Controllers\Web\Schedule;
 
+use App\Application\Services\Brand\SocialAccountService;
 use App\Http\Controllers\Controller;
+use App\Models\BrandAsset;
 use App\Models\ContentItem;
 use App\Models\SocialAccount;
 use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
-use Illuminate\Support\Str;
 use Illuminate\View\View;
 
 class ScheduleController extends Controller
 {
+    public function __construct(
+        private readonly SocialAccountService $socialAccounts,
+    ) {
+    }
+
     public function index(Request $request): View
     {
         $brand = $request->attributes->get('current_brand');
@@ -26,18 +32,30 @@ class ScheduleController extends Controller
         $weekStart = $this->resolveWeekStart($request, $month);
 
         $rangeStart = $weekStart->copy()->startOfDay();
-        $rangeEnd = $weekStart->copy()->addDays(13)->endOfDay();
+        $rangeEnd = $weekStart->copy()->addDays(6)->endOfDay();
 
-        $scheduledInRange = ContentItem::query()
+        $scheduledItems = ContentItem::query()
             ->where('brand_id', $brand->id)
             ->whereIn('status', ['scheduled', 'published', 'failed'])
             ->whereNotNull('scheduled_at')
             ->whereBetween('scheduled_at', [$rangeStart, $rangeEnd])
             ->orderBy('scheduled_at')
+            ->get();
+
+        $accounts = SocialAccount::query()
+            ->whereIn('id', $scheduledItems
+                ->map(fn (ContentItem $item) => data_get($item->metadata, 'social_account_id'))
+                ->filter()
+                ->unique()
+                ->values())
             ->get()
+            ->keyBy('id');
+
+        $scheduledInRange = $scheduledItems
+            ->map(fn (ContentItem $item) => $this->enrichContentItem($item, $accounts))
             ->groupBy(fn (ContentItem $item) => $item->scheduled_at->format('Y-m-d'));
 
-        $calendarDays = $this->buildDayColumns($weekStart, 14, $scheduledInRange);
+        $calendarDays = $this->buildDayColumns($weekStart, 7, $scheduledInRange);
 
         $todayQueue = ContentItem::query()
             ->where('brand_id', $brand->id)
@@ -90,6 +108,7 @@ class ScheduleController extends Controller
             'bulkAccounts' => max(1, $socialAccounts->count()),
             'prevWeek' => $weekStart->copy()->subDays(7)->format('Y-m-d'),
             'nextWeek' => $weekStart->copy()->addDays(7)->format('Y-m-d'),
+            'weekEnd' => $weekStart->copy()->addDays(6),
         ]);
     }
 
@@ -107,10 +126,10 @@ class ScheduleController extends Controller
         }
 
         if ($month->isSameMonth(now())) {
-            return now()->startOfWeek(Carbon::MONDAY)->startOfDay();
+            return now()->startOfWeek(Carbon::SUNDAY)->startOfDay();
         }
 
-        return $month->copy()->startOfWeek(Carbon::MONDAY)->startOfDay();
+        return $month->copy()->startOfWeek(Carbon::SUNDAY)->startOfDay();
     }
 
     /** @param Collection<string, Collection<int, ContentItem>> $grouped */
@@ -127,10 +146,12 @@ class ScheduleController extends Controller
                 'key' => $key,
                 'date' => $cursor->copy(),
                 'day' => $cursor->day,
-                'weekday' => strtoupper($cursor->format('D')),
+                'weekday' => $cursor->format('D'),
+                'weekdayShort' => strtoupper($cursor->format('D')),
+                'label' => $cursor->format('D j'),
                 'isToday' => $cursor->isToday(),
                 'count' => $items->count(),
-                'posts' => $items->map(fn (ContentItem $item) => $this->mapPostCard($item))->values()->all(),
+                'posts' => $items->values()->all(),
             ];
 
             $cursor->addDay();
@@ -139,64 +160,125 @@ class ScheduleController extends Controller
         return $columns;
     }
 
-    /** @return array<string, mixed> */
-    private function mapPostCard(ContentItem $item): array
+    private function enrichContentItem(ContentItem $item, Collection $accounts): ContentItem
     {
-        $platform = strtolower((string) ($item->platform ?? 'x'));
-        $status = strtolower((string) ($item->status ?? 'scheduled'));
+        $platform = strtolower((string) ($item->platform ?? 'instagram'));
+        $accountId = data_get($item->metadata, 'social_account_id');
+        $account = $accountId ? $accounts->get($accountId) : null;
+
+        if (! $account && $accountId) {
+            $account = SocialAccount::query()->find($accountId);
+        }
+
+        $name = data_get($item->metadata, 'social_account_name') ?: $account?->account_name;
+        $handle = $account?->account_handle;
+        $initialsAccount = $account ?? new SocialAccount([
+            'account_name' => $name,
+            'account_handle' => $handle,
+        ]);
+
+        $item->setAttribute('publish_account', [
+            'name' => $name,
+            'handle' => filled($handle) ? $handle : null,
+            'initials' => $name ? $this->socialAccounts->avatarInitials($initialsAccount) : strtoupper(substr($platform, 0, 1)),
+            'avatar_style' => $this->socialAccounts->avatarStyle($platform),
+            'profile_image_url' => filled($account?->profile_image_url) ? $account->profile_image_url : null,
+            'platform_label' => match ($platform) {
+                'x' => 'X',
+                'youtube' => 'YouTube',
+                default => ucfirst($platform),
+            },
+        ]);
+
+        $item->setAttribute('schedule_media', $this->resolveScheduleMedia($item));
+
+        return $item;
+    }
+
+    /** @return array{thumbnail: ?string, video: ?string, carousel: list<string>} */
+    private function resolveScheduleMedia(ContentItem $item): array
+    {
+        $postType = data_get($item->metadata, 'post_type', 'image');
+        $thumbnail = data_get($item->metadata, 'thumbnail_url');
+        $video = data_get($item->metadata, 'video_url');
+        $carousel = collect(data_get($item->metadata, 'carousel_images', []))
+            ->filter(fn ($url) => filled($url))
+            ->values()
+            ->all();
+
+        $manualType = (string) data_get($item->metadata, 'visual_manual_type', '');
+        $manualKey = data_get($item->metadata, 'visual_manual_key');
+
+        if (filled($manualKey)) {
+            if ($postType === 'reel' && ! filled($video) && $manualType === 'reel' && ctype_digit((string) $manualKey)) {
+                $asset = BrandAsset::query()
+                    ->where('brand_id', $item->brand_id)
+                    ->where('id', (int) $manualKey)
+                    ->first();
+                $video = $asset ? route('app.brand.assets.show', $asset) : $video;
+            }
+
+            if (! filled($thumbnail) && $postType !== 'reel') {
+                $thumbnail = $this->resolveAssetUrl($item->brand_id, $manualType, $manualKey);
+            }
+
+            if ($postType === 'carousel' && $carousel === []) {
+                $carousel = BrandAsset::query()
+                    ->where('brand_id', $item->brand_id)
+                    ->where('metadata->carousel_group', $manualKey)
+                    ->orderBy('metadata->slot')
+                    ->get()
+                    ->map(fn (BrandAsset $asset) => route('app.brand.assets.show', $asset))
+                    ->filter()
+                    ->values()
+                    ->all();
+            }
+        }
+
+        if ($postType === 'carousel' && $carousel !== [] && ! filled($thumbnail)) {
+            $thumbnail = $carousel[0];
+        }
 
         return [
-            'id' => $item->id,
-            'platform' => $platform,
-            'platform_label' => $this->platformLabel($platform, $item->content_type),
-            'platform_class' => $this->platformCalClass($platform),
-            'title' => trim((string) ($item->title ?: Str::limit((string) $item->body, 60))) ?: 'Untitled post',
-            'body' => Str::limit(trim((string) ($item->body ?? '')), 100),
-            'time' => $item->scheduled_at?->format('H:i'),
-            'time_label' => $item->scheduled_at?->format('H:i'),
-            'status' => $status,
-            'status_label' => match ($status) {
-                'published' => 'Published',
-                'failed' => 'Failed',
-                default => 'Pending',
-            },
-            'thumbnail' => data_get($item->metadata, 'thumbnail_url'),
-            'source' => data_get($item->metadata, 'planning_source', 'Manual'),
-            'show_url' => route('app.brand.ai-post-library.show', $item),
-            'edit_url' => route('app.brand.ai-post-library.edit', $item),
+            'thumbnail' => filled($thumbnail) ? (string) $thumbnail : null,
+            'video' => filled($video) ? (string) $video : null,
+            'carousel' => $carousel,
         ];
     }
 
-    private function platformCalClass(?string $platform): string
+    private function resolveAssetUrl(int $brandId, string $manualType, mixed $manualKey): ?string
     {
-        return match (strtolower($platform ?? '')) {
-            'linkedin' => 'li',
-            'instagram' => 'ig',
-            'facebook' => 'fb',
-            'x', 'twitter' => 'x',
-            default => 'x',
-        };
-    }
+        if ($manualType === 'image' && ctype_digit((string) $manualKey)) {
+            $asset = BrandAsset::query()
+                ->where('brand_id', $brandId)
+                ->where('id', (int) $manualKey)
+                ->first();
 
-    private function platformLabel(?string $platform, ?string $contentType = null): string
-    {
-        $name = match (strtolower($platform ?? '')) {
-            'linkedin' => 'LinkedIn',
-            'instagram' => 'Instagram',
-            'facebook' => 'Facebook',
-            'x', 'twitter' => 'X',
-            'youtube' => 'YouTube',
-            default => ucfirst($platform ?? 'Post'),
-        };
-
-        if ($contentType && str_contains(strtolower($contentType), 'thread')) {
-            return $name === 'X' ? 'X thread' : $name;
+            return $asset ? route('app.brand.assets.show', $asset) : null;
         }
 
-        if ($contentType && str_contains(strtolower($contentType), 'reel')) {
-            return 'Reel';
+        if ($manualType === 'caption' && filled($manualKey)) {
+            $query = BrandAsset::query()->where('brand_id', $brandId);
+            $assets = ctype_digit((string) $manualKey)
+                ? $query->where('id', (int) $manualKey)->get()
+                : $query->where('metadata->content_group', $manualKey)->get();
+
+            $image = $assets->first(fn (BrandAsset $asset) => data_get($asset->metadata, 'role') === 'image'
+                || str_starts_with((string) $asset->file_type, 'image'));
+
+            return $image ? route('app.brand.assets.show', $image) : null;
         }
 
-        return $name;
+        if ($manualType === 'carousel' && filled($manualKey)) {
+            $asset = BrandAsset::query()
+                ->where('brand_id', $brandId)
+                ->where('metadata->carousel_group', $manualKey)
+                ->orderBy('metadata->slot')
+                ->first();
+
+            return $asset ? route('app.brand.assets.show', $asset) : null;
+        }
+
+        return null;
     }
 }

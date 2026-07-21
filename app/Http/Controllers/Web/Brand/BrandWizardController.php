@@ -320,7 +320,7 @@ class BrandWizardController extends Controller
         session(['current_brand_id' => $brand->id]);
 
         return redirect()
-            ->route('app.dashboard')
+            ->route('app.brand.dashboard')
             ->with('success', 'Welcome to CMO AI! Your brand is ready — we\'re already learning from your data.');
     }
 

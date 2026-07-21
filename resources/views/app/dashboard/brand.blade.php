@@ -28,7 +28,6 @@
         </div>
     </div>
     <div class="wb-actions">
-        <a href="{{ route('app.content.generate') }}" class="btn btn-green btn-sm"><i class="ti ti-sparkles"></i> Generate content</a>
         <button type="button" class="btn btn-ghost btn-sm" data-open-brand-modal><i class="ti ti-plus"></i> New brand</button>
     </div>
 </div>
@@ -85,7 +84,6 @@
         <div class="card" style="margin-bottom:12px">
             <div class="card-title">Quick actions</div>
             <div class="act-grid">
-                <a href="{{ route('app.content.generate') }}" class="act-card"><i class="ti ti-sparkles" style="color:var(--purple2)"></i> Generate post</a>
                 <a href="{{ route('app.schedule.index') }}" class="act-card"><i class="ti ti-calendar" style="color:var(--green)"></i> Schedule posts</a>
                 <a href="{{ route('app.brand.content-library') }}" class="act-card"><i class="ti ti-folder" style="color:var(--warning)"></i> Content Library</a>
                 <button type="button" class="act-card" style="border:none;width:100%;cursor:pointer" data-open-brand-modal><i class="ti ti-plus" style="color:var(--purple2)"></i> New brand</button>

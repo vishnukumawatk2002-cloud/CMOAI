@@ -13,6 +13,7 @@ use App\Models\Brand;
 use App\Models\BrandAsset;
 use App\Models\ContentItem;
 use App\Models\SocialAccount;
+use Carbon\Carbon;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -157,7 +158,15 @@ class BrandPostPlanningController extends BrandContentLibraryController
 
             'items.*.carousel_images.*' => ['nullable', 'string', 'max:2000'],
 
+            'scheduled_at' => ['nullable', 'date', 'after:now'],
+
         ]);
+
+
+
+        $scheduledAt = filled($validated['scheduled_at'] ?? null)
+            ? Carbon::parse($validated['scheduled_at'])
+            : null;
 
 
 
@@ -295,7 +304,9 @@ class BrandPostPlanningController extends BrandContentLibraryController
 
                 'body' => $body,
 
-                'status' => 'draft',
+                'status' => $scheduledAt ? 'scheduled' : 'draft',
+
+                'scheduled_at' => $scheduledAt,
 
                 'metadata' => [
 
@@ -342,6 +353,14 @@ class BrandPostPlanningController extends BrandContentLibraryController
         }
 
 
+
+        if ($scheduledAt) {
+            $weekStart = $scheduledAt->copy()->startOfWeek(Carbon::SUNDAY)->format('Y-m-d');
+
+            return redirect()
+                ->route('app.schedule.index', ['tab' => 'calendar', 'start' => $weekStart])
+                ->with('success', $saved.' post(s) scheduled for '.$saved.' account(s).');
+        }
 
         return redirect()
 

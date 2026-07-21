@@ -101,11 +101,15 @@
        
 
         @if ($showPlanningSelect ?? false)
-            <form method="POST" action="{{ route($routeName.'.save') }}" id="clib-plan-save-form" class="clib-plan-save-form">
+            <form method="POST" action="{{ route($routeName.'.save') }}" id="clib-plan-save-form" class="clib-plan-save-form" style="margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap">
                 @csrf
                 <input type="hidden" name="tab" value="{{ $isMixedPlanning ? 'mixed' : $tab }}">
                 <input type="hidden" name="post_type" id="clib-plan-post-type" value="image">
+                <input type="hidden" name="scheduled_at" id="clib-plan-scheduled-at" value="">
                 <div id="clib-plan-selected-inputs"></div>
+                <button type="button" class="btn btn-purple btn-sm" id="clib-schedule-plan-btn" disabled>
+                    <i class="ti ti-calendar"></i> Schedule
+                </button>
                 <button type="submit" class="btn btn-green btn-sm devbtn" id="clib-save-plan-btn" disabled>
                     <i class="ti ti-device-floppy"></i> Save
                 </button>
@@ -738,6 +742,33 @@
 @endpush
 @endif
 
+@if ($showPlanningSelect ?? false)
+@push('modals')
+<div class="modal-overlay" id="clib-schedule-modal" aria-hidden="true">
+    <div class="cmo-modal" role="dialog" aria-modal="true" aria-labelledby="clib-schedule-title" style="max-width:420px">
+        <div class="modal-head">
+            <div>
+                <h2 id="clib-schedule-title">Schedule posts</h2>
+                <p>Pick when these posts should go live.</p>
+            </div>
+            <button type="button" class="close-btn" data-close-clib-schedule-modal aria-label="Close"><i class="ti ti-x"></i></button>
+        </div>
+        <div class="modal-body">
+            <div class="field">
+                <label for="clib-schedule-datetime">Date &amp; time</label>
+                <input type="datetime-local" id="clib-schedule-datetime" class="clib-upload-textarea" style="min-height:auto;padding:10px 12px">
+            </div>
+            <p class="clib-upload-hint">Posts will appear in Schedule and publish automatically at the chosen time.</p>
+        </div>
+        <div class="modal-foot" style="justify-content:flex-end">
+            <button type="button" class="btn btn-ghost" data-close-clib-schedule-modal>Cancel</button>
+            <button type="button" class="btn btn-purple" id="clib-schedule-confirm"><i class="ti ti-calendar"></i> Schedule posts</button>
+        </div>
+    </div>
+</div>
+@endpush
+@endif
+
 @push('scripts')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
@@ -1056,6 +1087,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const planSaveForm = document.getElementById('clib-plan-save-form');
     const planSaveBtn = document.getElementById('clib-save-plan-btn');
+    const planScheduleBtn = document.getElementById('clib-schedule-plan-btn');
+    const planScheduledAtInput = document.getElementById('clib-plan-scheduled-at');
     const planInputsHost = document.getElementById('clib-plan-selected-inputs');
     const planPostTypeInput = document.getElementById('clib-plan-post-type');
     const planTypeHint = document.getElementById('pp-type-hint');
@@ -1211,10 +1244,17 @@ document.addEventListener('DOMContentLoaded', function () {
         }, {});
         const ready = rules?.required?.every((cat) => byCategory[cat] === 1) ?? false;
         const channelCount = getSelectedChannels().length;
-        planSaveBtn.disabled = !ready || channelCount === 0;
-        planSaveBtn.innerHTML = ready && channelCount > 0
+        const enabled = ready && channelCount > 0;
+        planSaveBtn.disabled = !enabled;
+        planSaveBtn.innerHTML = enabled
             ? `<i class="ti ti-device-floppy"></i> Save (${channelCount} posts)`
             : '<i class="ti ti-device-floppy"></i> Save';
+        if (planScheduleBtn) {
+            planScheduleBtn.disabled = !enabled;
+            planScheduleBtn.innerHTML = enabled
+                ? `<i class="ti ti-calendar"></i> Schedule (${channelCount})`
+                : '<i class="ti ti-calendar"></i> Schedule';
+        }
     };
 
     const applyPostType = (type) => {
@@ -1362,6 +1402,94 @@ document.addEventListener('DOMContentLoaded', function () {
 
         syncPlanSaveState();
     }
+
+    const scheduleModal = document.getElementById('clib-schedule-modal');
+    const scheduleDatetimeInput = document.getElementById('clib-schedule-datetime');
+    const scheduleConfirmBtn = document.getElementById('clib-schedule-confirm');
+
+    const padSchedulePart = (value) => String(value).padStart(2, '0');
+
+    const toDatetimeLocalValue = (date) => {
+        return [
+            date.getFullYear(),
+            padSchedulePart(date.getMonth() + 1),
+            padSchedulePart(date.getDate()),
+        ].join('-') + 'T' + [
+            padSchedulePart(date.getHours()),
+            padSchedulePart(date.getMinutes()),
+        ].join(':');
+    };
+
+    const openScheduleModal = () => {
+        if (!scheduleModal || !scheduleDatetimeInput) return;
+        const minDate = new Date(Date.now() + 60000);
+        minDate.setSeconds(0, 0);
+        scheduleDatetimeInput.min = toDatetimeLocalValue(minDate);
+        if (!scheduleDatetimeInput.value || new Date(scheduleDatetimeInput.value) <= new Date()) {
+            const defaultDate = new Date(minDate.getTime() + 30 * 60000);
+            defaultDate.setSeconds(0, 0);
+            scheduleDatetimeInput.value = toDatetimeLocalValue(defaultDate);
+        }
+        scheduleModal.classList.add('is-open');
+        scheduleModal.setAttribute('aria-hidden', 'false');
+        document.body.style.overflow = 'hidden';
+        scheduleDatetimeInput.focus();
+    };
+
+    const closeScheduleModal = () => {
+        if (!scheduleModal) return;
+        scheduleModal.classList.remove('is-open');
+        scheduleModal.setAttribute('aria-hidden', 'true');
+        document.body.style.overflow = '';
+    };
+
+    planSaveBtn?.addEventListener('click', () => {
+        if (planScheduledAtInput) planScheduledAtInput.value = '';
+    });
+
+    planScheduleBtn?.addEventListener('click', () => {
+        const postType = planPostTypeInput?.value || 'image';
+        const rules = postTypeRules[postType];
+        const checked = [...document.querySelectorAll('[data-plan-checkbox]:checked:not(:disabled)')];
+        const byCategory = checked.reduce((acc, cb) => {
+            const cat = cb.dataset.planCategory || '';
+            acc[cat] = (acc[cat] || 0) + 1;
+            return acc;
+        }, {});
+        const ready = rules?.required?.every((cat) => byCategory[cat] === 1) ?? false;
+        if (!ready) {
+            alert('Select exactly one item from each required column.');
+            return;
+        }
+        if (!getSelectedChannels().length) {
+            alert('Select at least one connected social account.');
+            return;
+        }
+        openScheduleModal();
+    });
+
+    scheduleConfirmBtn?.addEventListener('click', () => {
+        const value = scheduleDatetimeInput?.value || '';
+        if (!value) {
+            alert('Choose a date and time.');
+            return;
+        }
+        if (new Date(value) <= new Date()) {
+            alert('Schedule time must be in the future.');
+            return;
+        }
+        if (planScheduledAtInput) planScheduledAtInput.value = value;
+        closeScheduleModal();
+        planSaveForm?.requestSubmit();
+    });
+
+    scheduleModal?.querySelectorAll('[data-close-clib-schedule-modal]').forEach((btn) => {
+        btn.addEventListener('click', closeScheduleModal);
+    });
+
+    scheduleModal?.addEventListener('click', (e) => {
+        if (e.target === scheduleModal) closeScheduleModal();
+    });
 
     const uploadModal = document.getElementById('clib-upload-modal');
     if (uploadModal) {

@@ -10,3 +10,7 @@ Artisan::command('inspire', function () {
 
 Schedule::command('queue:prune-failed --hours=168')->daily();
 Schedule::command('cache:prune-stale-tags')->hourly();
+Schedule::command('cmo:publish-scheduled')
+    ->everyMinute()
+    ->withoutOverlapping()
+    ->runInBackground();
